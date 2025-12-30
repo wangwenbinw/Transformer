@@ -65,7 +65,7 @@ def merge_pairs(pair,v_in):
 
 #%%
 '''查阅算法执行10遍之后的结果'''
-num_merges = 10
+num_merges = 5
 test_text = (
     "hug " * 5 +
     "pug " * 10 +
