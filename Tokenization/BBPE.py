@@ -1,18 +1,13 @@
-import re,collections
-#%%
 import re
 import collections
 
-# 1. BBPE 核心：字节到 Unicode 的映射 (你的代码)
+# 1. BBPE 核心：字节到 Unicode 的映射 (标准 GPT-2 实现)
 def bytes_to_unicode():
-    # 挑选出“天生安全”的可打印字符区间
-    #ord：字符 -> 数字; chr:数字 -> 字符
     bs = (list(range(ord("!"), ord("~") + 1))
           + list(range(ord("¡"), ord("¬") + 1))
           + list(range(ord("®"), ord("ÿ") + 1)))
     cs = bs[:]
     n = 0
-    # 对于不在安全区（如空格 32）的字节，映射到 256 之后的新编码上
     for b in range(256):
         if b not in bs:
             bs.append(b)
@@ -21,20 +16,27 @@ def bytes_to_unicode():
     cs = [chr(n) for n in cs]
     return dict(zip(bs, cs))
 
-# 初始化映射表
 byte_encoder = bytes_to_unicode()
 
-# 2. 初始词频统计 (字节级)
+# 2. 初始词频统计 (模拟 GPT-2 预分词逻辑)
 def get_bbpe_vocab(text):
+    # GPT-2 的核心正则简化版：匹配单词(可能带前导空格)、数字、标点或连续空格
+    # 注意：' ?' 表示可选的空格前缀
+    gpt2_pat = re.compile(r"""'s|'t|'re|'ve|'m|'ll|'d| ?\w+| ?[^\s\w]+|\s+(?!\S)|\s+""")
+    
+    # 找出所有预分词块
+    raw_chunks = re.findall(gpt2_pat, text)
+    
     vocab = collections.Counter()
-    for word in text.strip().split():
-        # 核心：先转 UTF-8 字节，再查表映射为可见符号
-        tokens = [byte_encoder[b] for b in word.encode('utf-8')]
-        char_sequence = ' '.join(tokens) + ' </w>'
+    for chunk in raw_chunks:
+        # 将每个块转为字节，再映射为 Unicode 字符序列
+        tokens = [byte_encoder[b] for b in chunk.encode('utf-8')]
+        # 以空格分隔每个符号，用于 BPE 统计
+        char_sequence = ' '.join(tokens)
         vocab[char_sequence] += 1
     return vocab
 
-# 3. 统计相邻字符对频率
+# 3. 统计相邻字符对频率 (保持不变)
 def get_stats(vocab):
     pairs = collections.Counter()
     for word, frequency in vocab.items():
@@ -44,7 +46,7 @@ def get_stats(vocab):
             pairs[pair] += frequency
     return pairs
 
-# 4. 执行合并逻辑
+# 4. 执行合并逻辑 (保持不变)
 def merge_pairs(pair, v_in):
     v_out = {}
     bigram = re.escape(' '.join(pair))
@@ -56,24 +58,30 @@ def merge_pairs(pair, v_in):
     return v_out
 
 # --- 模拟执行 ---
-# 语料库：包含英文重叠和中文
+# 语料库
 text = "Hi " * 3 + "你好 " * 4 + "Hight " * 4
 vocab = get_bbpe_vocab(text)
 
-print("【初始 BBPE 词表】:")
-print(vocab)
+print("【初始 BBPE 词表 (已应用 Byte-mapping，无 </w>)】:")
+# 这里的 'Ġ' 通常是空格 0x20 映射后的字符
+for word, freq in vocab.items():
+    print(f"'{word}': {freq}")
 print("-" * 50)
 
-# 执行 10 次合并
-num_merges = 5
+# 执行合并
+num_merges = 8
 for i in range(num_merges):
     pairs = get_stats(vocab)
     if not pairs:
         break
     best_pair = pairs.most_common(1)[0][0]
     vocab = merge_pairs(best_pair, vocab)
-    print(f"第 {i+1} 次合并: {best_pair} -> {''.join(best_pair)}")
+    
+    # 将映射后的字符还原为可读显示
+    readable_pair = "".join(best_pair)
+    print(f"第 {i+1} 次合并: {best_pair} -> {readable_pair}")
 
 print("-" * 50)
-print("【合并 10 次后的结果】:")
-print(vocab)
+print("【合并后的结果】:")
+for word, freq in vocab.items():
+    print(f"'{word}': {freq}")
